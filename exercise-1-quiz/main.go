@@ -10,6 +10,7 @@ import (
   "strings"
   "flag"
   "time"
+  "math/rand"
 )
 
 func main() {
@@ -41,6 +42,7 @@ func runTest(csvReader *csv.Reader, limit int) {
     return
   }
 
+  records = shuffle(records)
   for _, record := range records {
     go testRunAnswer(record, inputReader, answerChan)
     select {
@@ -89,3 +91,12 @@ func runAnswer(record []string, inputReader *bufio.Reader) bool {
   return userAnswer == realAnswer
 }
 
+func shuffle(records [][]string) [][]string {
+  r := rand.New(rand.NewSource(time.Now().Unix()))
+  ret := make([][]string, len(records))
+  perm := r.Perm(len(records))
+  for i, randIndex := range perm {
+    ret[i] = records[randIndex]
+  }
+  return ret
+}
