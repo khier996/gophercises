@@ -9,10 +9,12 @@ import (
   "fmt"
   "strings"
   "flag"
+  "time"
 )
 
 func main() {
   filePath := flag.String("file", "answers.csv", "path to answers file")
+  limit := flag.Int("limit", 30, "timer duration")
   flag.Parse()
 
   file, err := os.Open(*filePath)
@@ -21,31 +23,56 @@ func main() {
   } else {
     lr := io.MultiReader(file)
     csvReader := csv.NewReader(lr)
-    runTest(csvReader)
+    runTest(csvReader, *limit)
   }
+
 }
 
-func runTest(csvReader *csv.Reader) {
+func runTest(csvReader *csv.Reader, limit int) {
+  timer := time.NewTimer(time.Duration(limit) * time.Second)
   correctCount := 0
-  totalCount := 0
-
   inputReader := bufio.NewReader(os.Stdin)
-  for {
-    if record, err := csvReader.Read(); err != nil {
-      if err == io.EOF {
-        break
-      } else {
-        log.Fatal("error reading csv file", err)
-      }
-    } else {
-      totalCount++
-      if correct := runAnswer(record, inputReader); correct {
-        correctCount++
-      }
+  answerChan := make(chan bool)
+
+  var records [][]string
+  var csvErr error
+  if records, csvErr = csvReader.ReadAll(); csvErr != nil {
+    log.Fatal("error reading csv file", csvErr)
+    return
+  }
+
+  for _, record := range records {
+    go testRunAnswer(record, inputReader, answerChan)
+    select {
+      case answer := <-answerChan:
+        if answer { correctCount++ }
+      case <-timer.C:
+        fmt.Println("\nYou ran out of time")
+        printResult(correctCount, len(records))
+        return
     }
   }
+
+  printResult(correctCount, len(records))
+}
+
+func printResult(correctCount, totalCount int) {
   fmt.Println("**********************************************")
   fmt.Println("You scored", correctCount, "out of", totalCount)
+}
+
+func testRunAnswer(record []string, inputReader *bufio.Reader, answerChan chan bool) {
+  var userAnswer string
+  var err error
+
+  fmt.Print(record[0], " = ")
+  if userAnswer, err = inputReader.ReadString('\n'); err != nil && err != io.EOF {
+    log.Fatal("error reading answer", err)
+  }
+
+  userAnswer = strings.TrimSpace(userAnswer)
+  realAnswer := strings.TrimSpace(record[1])
+  answerChan <- userAnswer == realAnswer
 }
 
 func runAnswer(record []string, inputReader *bufio.Reader) bool {
