@@ -47,10 +47,12 @@ func MapHandler(pathsToUrls map[string]string, fallback http.Handler) http.Handl
 // a mapping of paths to urls.
 func YAMLHandler(yml []byte, fallback http.Handler) (http.HandlerFunc, error) {
 	// TODO: Implement this...
+
   var pathUrls []pathUrl
   if err := yaml.Unmarshal(yml, &pathUrls); err != nil {
     return nil, err
   }
+
 	pathsMap := make(map[string]string)
   for _, pathUrlObj := range pathUrls {
     pathsMap[pathUrlObj.Path] = pathUrlObj.Url

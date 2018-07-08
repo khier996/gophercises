@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"net/http"
+  "io/ioutil"
+  "flag"
 
 	"github.com/khier996/gophercises/exercise-2-urlshort"
 )
@@ -19,12 +21,14 @@ func main() {
 
 	// Build the YAMLHandler using the mapHandler as the
 	// fallback
-	yaml := `
-- path: /urlshort
-  url: https://github.com/gophercises/urlshort
-- path: /urlshort-final
-  url: https://github.com/gophercises/urlshort/tree/solution
-`
+
+  yamlFilePath := flag.String("yaml", "path-urls.yaml", "Path to URLs yaml file")
+  flag.Parse()
+
+  yaml, yamlErr := ioutil.ReadFile(*yamlFilePath)
+  if yamlErr != nil {
+    fmt.Println("Error opening yaml file", yamlErr)
+  }
 
 	yamlHandler, err := urlshort.YAMLHandler([]byte(yaml), mapHandler)
 	if err != nil {
