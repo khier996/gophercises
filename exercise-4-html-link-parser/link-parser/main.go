@@ -37,7 +37,8 @@ func rememberLink(linkNode *html.Node, links *[]Link) {
     return // do not remember links that do not have href attribute
   } else {
     linkText := findLinkText(linkNode)
-    link := Link{ href, linkText[1:] } // linkText[1:] gets rid of the first space created by extractLinkChildrenText method
+    if len(linkText) > 0 { linkText = linkText[1:] } // linkText[1:] gets rid of the first space created by extractLinkChildrenText method
+    link := Link{ href, linkText }
     *links = append(*links, link)
   }
 }
