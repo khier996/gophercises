@@ -2,7 +2,6 @@ package link_parser
 
 import (
   "golang.org/x/net/html"
-  "log"
   "errors"
   "strings"
 )
@@ -35,10 +34,10 @@ func traverseNode(node *html.Node, links *[]Link) {
 
 func rememberLink(linkNode *html.Node, links *[]Link) {
   if href, err := findHref(linkNode); err != nil {
-    log.Fatal("Link does not have href attribute")
+    return // do not remember links that do not have href attribute
   } else {
     linkText := findLinkText(linkNode)
-    link := Link{ href, linkText }
+    link := Link{ href, linkText[1:] } // linkText[1:] gets rid of the first space created by extractLinkChildrenText method
     *links = append(*links, link)
   }
 }
