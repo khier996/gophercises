@@ -8,9 +8,20 @@ import (
   "golang.org/x/net/html"
   "flag"
   "strings"
+  "encoding/xml"
+  "os"
 
   linkParser "github.com/khier996/gophercises/exercise-4-html-link-parser/link-parser"
 )
+
+type Url struct {
+  Loc string `xml:"loc"`
+}
+
+type UrlSet struct {
+  XMLName   xml.Name `xml:"http://www.sitemaps.org/schemas/sitemap/0.9 urlset"`
+  UrlSet []Url `xml:"url"`
+}
 
 var hostname string
 var parsedLinks = map[string]bool{"/": true}
@@ -30,41 +41,62 @@ func main() {
   scrapeHref(landingPageUrl)
 
   fmt.Println("all links", allLinks)
+  writeXmlFile()
+}
+
+func writeXmlFile() {
+  urlMap := buildUrlMap()
+
+  if file, fileErr := os.Create("data.xml"); fileErr != nil {
+    log.Fatal("error creating file", fileErr)
+  } else {
+    encoder := xml.NewEncoder(file)
+    if encErr := encoder.Encode(urlMap); encErr != nil {
+      log.Fatal("error encoding xml", encErr)
+    }
+  }
 }
 
 func scrapeHref(href string) {
-  href = strings.Split(href, "#")[0] // links with different parts after "#" actually point to the same page
-  parsedLinks[href] = true
-  urlString := buildUrlFromHref(href)
+  fmt.Println("scraping url", href)
 
-  fmt.Println("scraping url", urlString)
-
-  doc := getDoc(urlString)
+  doc := getDoc(href)
   links := linkParser.Parse(doc)
-  links = chooseDomainLinks(links)
+  links = cleanLinks(links)
+
+  links = chooseNewDomainLinks(links)
   allLinks = append(allLinks, links...)
 
   traverseLinks(links)
 }
 
-func buildUrlFromHref(href string) string {
-  var urlString string
-  if href[0:1] == "/" {
-    urlString = "http://" + hostname + href
-  } else if href[0:4] != "http" {
-    urlString = "http://" + href
-  } else {
-    urlString = href
+func cleanLinks(links []linkParser.Link) []linkParser.Link{
+  var cleanLinks []linkParser.Link
+  for _, link := range links {
+    if link.Href[0:1] == "#" { continue } // links that start with # point to the current page
+    cleanLink(&link)
+    cleanLinks = append(cleanLinks, link)
   }
-  return urlString
+  return cleanLinks
 }
 
+func cleanLink(link *linkParser.Link) {
+  if len(link.Href) > 4 && link.Href[0:4] == "https" {
+    link.Href = link.Href[0:4] + link.Href[5:] // substitute https with http
+  } else if link.Href[0:1] == "/" {
+    link.Href = "http://" + hostname + link.Href
+  } else if link.Href[0:3] == "www" {
+    link.Href = "http://" + link.Href
+  } else if link.Href[0:4] != "http" {
+    link.Href = "http://" + link.Href
+  }
+
+  link.Href = strings.Split(link.Href, "#")[0]
+}
 
 func traverseLinks(links []linkParser.Link) {
   for _, link := range links {
-    if !parsedLinks[link.Href] {
-      scrapeHref(link.Href)
-    }
+    scrapeHref(link.Href)
   }
 }
 
@@ -80,29 +112,31 @@ func getDoc(url string) *html.Node {
   return doc
 }
 
-func chooseDomainLinks(links []linkParser.Link) []linkParser.Link {
+func chooseNewDomainLinks(links []linkParser.Link) []linkParser.Link {
   var filteredLinks []linkParser.Link
   for _, link := range links {
-    link.Href = strings.Split(link.Href, "#")[0] // links with different parts after "#" actually point to the same page
-    if link.Href == "" { link.Href = "/" }
+    urlObj, err := url.Parse(link.Href)
+    if err != nil {
+      fmt.Println("error parsing url")
+      continue
+    }
 
-    if link.Href[0:1] == "/" && !parsedLinks[link.Href] {
+    linkHostname := urlObj.Hostname()
+    if linkHostname == hostname && !parsedLinks[link.Href] {
+      parsedLinks[link.Href] = true
       filteredLinks = append(filteredLinks, link)
-    } else {
-      urlObj, err := url.Parse(link.Href)
-      if err != nil {
-        fmt.Println("error parsing url")
-        continue
-      }
-
-      linkHostname := urlObj.Hostname()
-      if len(linkHostname) > 2 && linkHostname[0:3] == "www" { linkHostname = linkHostname[3:] }
-      if linkHostname == hostname && !parsedLinks[linkHostname] {
-        filteredLinks = append(filteredLinks, link)
-      }
     }
   }
 
   return filteredLinks
 }
 
+
+func buildUrlMap() UrlSet {
+  var urlMap []Url
+  for _, link := range allLinks {
+    newUrl := Url{link.Href}
+    urlMap = append(urlMap, newUrl)
+  }
+  return UrlSet{UrlSet: urlMap}
+}
