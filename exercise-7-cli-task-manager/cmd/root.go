@@ -5,6 +5,7 @@ import (
   "fmt"
   "log"
   "github.com/boltdb/bolt"
+  "github.com/mitchellh/go-homedir"
 )
 
 var rootCmd = &cobra.Command{
@@ -21,18 +22,30 @@ func Execute() {
   openDB()
   defer db.Close()
 
-  rootCmd.AddCommand(addCmd, listCmd)
+  rootCmd.AddCommand(addCmd, listCmd, doCmd)
   rootCmd.Execute()
 }
 
 func openDB() {
-  db, dbErr = bolt.Open("tasks.db", 0600, nil)
+  hdir, err := homedir.Dir()
+  if err != nil {
+    fmt.Println("Error finding home directory")
+    return
+  }
+  if hdir, err = homedir.Expand(hdir); err != nil {
+    log.Fatal("Error expanding home directory")
+  }
+
+  db, dbErr = bolt.Open(hdir + "/tasks.db", 0600, nil)
   if dbErr != nil {
     log.Fatal(dbErr)
   }
 
   db.Update(func(tx *bolt.Tx) error {
     _, err := tx.CreateBucketIfNotExists([]byte("Tasks"))
+    if err != nil {
+      log.Fatal("Could not create bucket Tasks")
+    }
     return err
   })
 }

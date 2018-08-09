@@ -14,6 +14,7 @@ var listCmd = &cobra.Command{
 }
 
 func listTasks() {
+  fmt.Println("You have the following tasks:")
   db.View(func(tx *bolt.Tx) error {
     b := tx.Bucket([]byte("Tasks"))
     counter := 0

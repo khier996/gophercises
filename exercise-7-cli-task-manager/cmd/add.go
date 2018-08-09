@@ -9,6 +9,8 @@ import (
 
 var addCmd = &cobra.Command{
   Use:   "add",
+  Long: "This command adds a new task to the task list",
+  Args: cobra.MinimumNArgs(1),
   Run: func(cmd *cobra.Command, args []string) {
     task := strings.Join(args, " ")
     addTask(task)
